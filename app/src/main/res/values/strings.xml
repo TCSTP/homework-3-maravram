@@ -30,6 +30,9 @@
     <string name="pay_n_items_and_get">Pay %1$s %2$ss and get %3$s</string>
     <string name="amount_off">%1$s off!</string>
     <string name="percentage_off">%1$s%% off!</string>
+    <string name="cart_items_section_title">Items</string>
+    <string name="cart_items_subtotal">Items subtotal: %1$s</string>
+    <string name="cart_discounts_total">Discounts: - %1$s</string>
 
     <string name="name_apple">Apple</string>
     <string name="name_banana">Banana</string>

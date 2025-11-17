@@ -1,14 +1,22 @@
 package tcs.app.dev.homework1
 
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import tcs.app.dev.R
 import tcs.app.dev.homework1.data.Cart
 import tcs.app.dev.homework1.data.Discount
+import tcs.app.dev.homework1.data.Item
 import tcs.app.dev.homework1.data.Shop
+import tcs.app.dev.homework1.data.minus
+import tcs.app.dev.homework1.data.plus
 
 /**
  * # Homework 3 — Shop App
@@ -68,9 +76,9 @@ import tcs.app.dev.homework1.data.Shop
  *        button to return to the shop.
  *
  * - **Bottom bar**:
-*       - In Shop/Discounts, show a 2-tab bottom bar to switch between **Shop** and **Discounts**.
-*       - In Cart, hide the tab bar and instead show the cart bottom bar with the total and **Pay**
-*         action as described above.
+ *       - In Shop/Discounts, show a 2-tab bottom bar to switch between **Shop** and **Discounts**.
+ *       - In Cart, hide the tab bar and instead show the cart bottom bar with the total and **Pay**
+ *         action as described above.
  *
  * ## Hints
  * - Keep your cart as a single source of truth and derive counts/price from it.
@@ -93,11 +101,109 @@ import tcs.app.dev.homework1.data.Shop
  *
  */
 @Composable
-fun ShopScreen(
-    shop: Shop,
-    availableDiscounts: List<Discount>,
-    modifier: Modifier = Modifier
-) {
+fun ShopScreen(shop: Shop, availableDiscounts: List<Discount>, modifier: Modifier = Modifier) {
     var cart by rememberSaveable { mutableStateOf(Cart(shop = shop)) }
+    var destination by rememberSaveable { mutableStateOf(ShopDestination.Shop) }
+    val canOpenCart = cart.itemCount > 0u
 
+    LaunchedEffect(canOpenCart, destination) {
+        if (destination == ShopDestination.Cart && !canOpenCart) {
+            destination = ShopDestination.Shop
+        }
+    }
+
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            ShopTopBar(
+                title =
+                    when (destination) {
+                        ShopDestination.Shop -> stringResource(id = R.string.name_shop)
+                        ShopDestination.Discounts ->
+                            stringResource(id = R.string.title_discounts)
+
+                        ShopDestination.Cart -> stringResource(id = R.string.title_cart)
+                    },
+                destination = destination,
+                cartCount = cart.totalCount,
+                canOpenCart = canOpenCart,
+                onBackClick = { destination = ShopDestination.Shop },
+                onCartClick = { destination = ShopDestination.Cart }
+            )
+        },
+        bottomBar = {
+            if (destination == ShopDestination.Cart && canOpenCart) {
+                CartBottomBar(
+                    total = cart.price,
+                    payEnabled = cart.itemCount > 0u,
+                    onPay = {
+                        cart = Cart(shop = shop)
+                        destination = ShopDestination.Shop
+                    }
+                )
+            } else {
+                ShopNavigationBar(
+                    selected = destination,
+                    onSelected = { selected -> destination = selected }
+                )
+            }
+        }
+    ) { padding ->
+        when {
+            destination == ShopDestination.Cart && canOpenCart -> {
+                CartContent(
+                    cart = cart,
+                    modifier = Modifier.padding(padding),
+                    onIncreaseItem = { item -> cart = cart.incrementItem(item) },
+                    onDecreaseItem = { item -> cart = cart.decrementItem(item) },
+                    onRemoveDiscount = { discount -> cart = cart.removeDiscount(discount) }
+                )
+            }
+
+            destination == ShopDestination.Discounts -> {
+                DiscountList(
+                    discounts = availableDiscounts,
+                    cart = cart,
+                    modifier = Modifier.padding(padding),
+                    onAddDiscount = { discount ->
+                        if (discount !in cart.discounts) {
+                            cart = cart.plus(discount)
+                        }
+                    }
+                )
+            }
+
+            else -> {
+                StoreItemList(
+                    shop = shop,
+                    modifier = Modifier.padding(padding),
+                    onAddItem = { item -> cart = cart + item }
+                )
+            }
+        }
+    }
 }
+
+enum class ShopDestination {
+    Shop,
+    Discounts,
+    Cart
+}
+
+private fun Cart.incrementItem(item: Item): Cart {
+    val current = items[item] ?: 0u
+    val next = (current + 1u).coerceAtMost(99u)
+    return copy(items = items + (item to next))
+}
+
+private fun Cart.decrementItem(item: Item): Cart {
+    val current = items[item] ?: return this
+    val next = if (current == 0u) 0u else current - 1u
+    return if (next == 0u) {
+        this.minus(item)
+    } else {
+        copy(items = items + (item to next))
+    }
+}
+
+private fun Cart.removeDiscount(discount: Discount): Cart = this - discount
